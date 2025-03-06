@@ -1,0 +1,52 @@
+outdir: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/simulation_gxg/temperature_cont_logm6_heart_rate_log_t21-35"
+pheno: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/flexlmm/inputs/f2_crosses.pheno"
+covar: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/flexlmm/inputs/f2_crosses.genetic_covars_2.covar"
+qtls: "/nfs/research/birney/users/saul/meta/heart_rate_tmp/fine_mapped_regions/qtls_simplified.08_11_2024.csv"
+freq: "/nfs/research/birney/users/saul/outputs/other/mikk_f0_allele_frequencies/mikk_f0_no_sister_lines_no_non_mikk.vcf.gz"
+vcf: "/nfs/research/birney/users/saul/outputs/stitchimpute_manuscript_data/K16_nGen2_downsampled_truth_stitch_downsampling_snps/joint_stitch_output/vcf/joint_stitch_output.vcf.gz"
+temperature_file: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/simulation/inputs/water_temp.csv.gz"
+# A box_cox transformation of heart_rate ~ temperature_cat indicates
+# ~0.14 as best lambda to reduce heteroschedasticity, so I select the
+# closest integer lambda = 0, which corresponds to a log transformation
+heart_rate_trans: "log(x)"
+# The relationship among heart rate and temperature becames not linear
+# after the heart rate transformation, so I transform also the
+# temperature to restore linearity. I empirically found this to work
+# well for the data. I represent a 6C temperature as minimum, with
+# logarithmic effect rising from there. Makes sense as at 6C embryos
+# are probably dead and ~10C is the minimum observed in the
+# breeding season.
+temp_trans: "log(x - 6)"
+temperature_filter: "temperature_celsius >= 21 & temperature_celsius <= 35 & breeding_season == TRUE"
+n_chr: 24
+n_rep: 2
+rand_seed: 1
+noise_levels: [
+  1.0e-2,
+  1.0e-1,
+  1.0e+0,
+  0,
+]
+allele_freq: [
+  0.001,
+  0.00316227766017, # sqrt(10) = 3.16227766017
+  0.01,
+  0.0316227766017,
+  0.1,
+  0.316227766017,
+  0.5,
+]
+n_samples: [
+  1.0e+2,
+  1.0e+3,
+  1.0e+4,
+  1.0e+5,
+  1.0e+6,
+  1.0e+7,
+  3.16227766017e+2,
+  3.16227766017e+3,
+  3.16227766017e+4,
+  3.16227766017e+5,
+  3.16227766017e+6,
+]
+r2: ["NA", 0.8, 0.9]
