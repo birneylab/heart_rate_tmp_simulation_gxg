@@ -19,7 +19,7 @@ heart_rate_trans: "log(x)"
 temp_trans: "log(x - 6)"
 temperature_filter: "temperature_celsius >= 21 & temperature_celsius <= 35 & breeding_season == TRUE"
 n_chr: 24
-n_rep: 2
+n_rep: 1
 rand_seed: 1
 noise_levels: [
   1.0e-2,
@@ -49,4 +49,4 @@ n_samples: [
   3.16227766017e+5,
   3.16227766017e+6,
 ]
-r2: ["NA", 0.8, 0.9]
+r2: ["NA", 0.9]

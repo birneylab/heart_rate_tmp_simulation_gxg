@@ -113,11 +113,29 @@ process get_formulas {
         #!/usr/bin/env Rscript
 
         formulas <- list(
-            model = formula(
+            model_gxg = formula(
                 heart_rate_trans ~
-                1 + cross_id*temperature_trans + phenotyping_plate_id +
+                1 +
+                cross_id*temperature_trans +
+                phenotyping_plate_id +
+                chr15_qtl*temperature_trans +
+                chr21_qtl*temperature_trans +
+                snp*temperature_trans +
+                dominance*temperature_trans +
                 chr15_qtl*snp*temperature_trans +
                 chr21_qtl*snp*temperature_trans
+            ),
+            model_no_gxg = formula(
+                heart_rate_trans ~
+                1 +
+                cross_id*temperature_trans +
+                phenotyping_plate_id +
+                chr15_qtl*temperature_trans +
+                chr21_qtl*temperature_trans +
+                snp*temperature_trans +
+                dominance*temperature_trans +
+                chr15_qtl*temperature_trans +
+                chr21_qtl*temperature_trans
             )
         )
 
@@ -252,6 +270,7 @@ process get_qtl_matrices {
             ret[["snp"]] <- pgenlibr::Buf(pgen)
             var_num <- pgenlibr::GetVariantsById(pvar, var_id)
             pgenlibr::Read(pgen, ret[["snp"]], var_num, allele_num = 2L)
+            ret[["dominance"]] = as.numeric(ret[["snp"]] == 1)
             return(ret)
         }
 
@@ -325,10 +344,6 @@ process get_qtl_matrices {
         K_list <- get_K_list("${grm_id}", "${grm_bin}", model_frame, df)
         y <- model.response(model_frame)
         X <- get_design_matrix(the_formula, model_frame)
-        if ((var(X[, "snp:chr21_qtl"]) == 0) & (var(X[, "chr15_qtl:snp"]) == 0)) {
-            message("Dropping locus because of lack of detectable interactions")
-            quit()
-        }
         res <- list(
             y = y,
             X = X,
@@ -605,12 +620,16 @@ process simulate {
         }
 
         simulate <- function(i){
-            message(sprintf("Simulation %s of %s", i, i_max))
             # unpack simulation parameters
             n <- params_df[i, n]
             p <- params_df[i, p]
             r2 <- params_df[i, r2]
             noise_lev <- params_df[i, noise_lev]
+
+            message(sprintf(
+                "Simulation %s of %s, n = %s, p = %s, r2 = %s, noise = %s",
+                i, i_max, n, p, r2, noise_lev
+            ))
 
             # simulated model variables
             temp_raw <- sample(temperature_vec, size = n, replace = TRUE)
@@ -622,6 +641,8 @@ process simulate {
                 temp = temp_trans(temp_raw)
             )
             vars[["snp:temp"]] <- vars[["snp"]] * vars[["temp"]]
+            vars[["dominance"]] <- as.numeric(vars[["snp"]] == 1)
+            vars[["dominance:temp"]] <- vars[["dominance"]] * vars[["temp"]]
             vars[["snp:chr15_qtl"]] <- vars[["snp"]] * vars[["chr15_qtl"]]
             vars[["snp:chr21_qtl"]] <- vars[["snp"]] * vars[["chr21_qtl"]]
             vars[["chr15_qtl:temp"]] <- vars[["snp"]] * vars[["chr15_qtl"]]
@@ -639,7 +660,7 @@ process simulate {
             bX <- do.call(
                 "cbind",
                 lapply(
-                    names(vars)[!(names(vars) %in% names(betas)[is.na(betas)])],
+                    names(vars),
                     function(var_name){vars[[var_name]] * betas[[var_name]]}
                 )
             )
@@ -670,6 +691,8 @@ process simulate {
 
             # regenerate interactions with the new terms
             vars[["snp:temp"]] <- vars[["snp"]] * vars[["temp"]]
+            vars[["dominance"]] <- as.numeric(vars[["snp"]] == 1)
+            vars[["dominance:temp"]] <- vars[["dominance"]] * vars[["temp"]]
             vars[["snp:chr15_qtl"]] <- vars[["snp"]] * vars[["chr15_qtl"]]
             vars[["snp:chr21_qtl"]] <- vars[["snp"]] * vars[["chr21_qtl"]]
             vars[["chr15_qtl:temp"]] <- vars[["snp"]] * vars[["chr15_qtl"]]
@@ -729,29 +752,52 @@ process simulate {
 
         # linear coefficients from the original fit
         fit_coef <- coef(fit_orig)
+
+        for (
+            v in c(
+                "chr15_qtl:snp",
+                "chr21_qtl:snp",
+                "temperature_trans:chr15_qtl:snp",
+                "temperature_trans:chr21_qtl:snp"
+            )
+        ) {
+            if (!(v %in% names(fit_coef))) fit_coef[[v]] <- 0
+        }
+        stopifnot(length(fit_coef) == 66)
+
+
         betas <- list(
             intercept = fit_coef[["(Intercept)"]],
             snp = fit_coef[["snp"]],
+            dominance = fit_coef[["dominance"]],
             temp = fit_coef[["temperature_trans"]],
             chr15_qtl = fit_coef[["chr15_qtl"]],
             chr21_qtl = fit_coef[["chr21_qtl"]],
             `chr15_qtl:temp` = fit_coef[["temperature_trans:chr15_qtl"]],
             `chr21_qtl:temp` = fit_coef[["temperature_trans:chr21_qtl"]],
             `snp:temp` = fit_coef[["temperature_trans:snp"]],
+            `dominance:temp` = fit_coef[["temperature_trans:dominance"]],
             `snp:chr15_qtl` = fit_coef[["chr15_qtl:snp"]],
-            `snp:chr21_qtl` = fit_coef[["snp:chr21_qtl"]],
+            `snp:chr21_qtl` = fit_coef[["chr21_qtl:snp"]],
             `snp:chr15_qtl:temp` = fit_coef[["temperature_trans:chr15_qtl:snp"]],
-            `snp:chr21_qtl:temp` = fit_coef[["temperature_trans:snp:chr21_qtl"]],
+            `snp:chr21_qtl:temp` = fit_coef[["temperature_trans:chr21_qtl:snp"]],
             # just to make the code simpler - the residual does not have an
             # effect of course
             resid = 1
         )
+
+        # replace missing betas with 0
+        betas[is.na(betas)] <- 0
 
         # models to fit to the simulated data - I always test whatever the
         # model is versus an environment and interacting loci-only model. When
         # the environment or the intera loci are
         # not in the model I test against an intercept only model.
         models <- list(
+            gxgxe_gxg_gxe_dominance = list(
+                model = "y ~ temp*snp*chr15_qtl + temp*snp*chr21_qtl + dominance*temp",
+                null_model = "y ~ temp*chr15_qtl + temp*chr21_qtl"
+            ),
             gxgxe_gxg_gxe = list(
                 model = "y ~ temp*snp*chr15_qtl + temp*snp*chr21_qtl",
                 null_model = "y ~ temp*chr15_qtl + temp*chr21_qtl"
@@ -760,17 +806,25 @@ process simulate {
                 model = "y ~ temp*snp + snp*chr15_qtl + snp*chr21_qtl + temp*chr15_qtl + temp*chr21_qtl",
                 null_model = "y ~ temp*chr15_qtl + temp*chr21_qtl"
             ),
+            gxe_and_dominance = list(
+                model = "y ~ temp*snp + temp*dominance + temp*chr15_qtl + temp*chr21_qtl",
+                null_model = "y ~ temp*chr15_qtl + temp*chr21_qtl"
+            ),
             gxe = list(
                 model = "y ~ temp*snp + temp*chr15_qtl + temp*chr21_qtl",
                 null_model = "y ~ temp*chr15_qtl + temp*chr21_qtl"
             ),
+            dominance = list(
+                model = "y ~ snp + dominance + temp*chr21_qtl + temp*chr15_qtl",
+                null_model = "y ~ temp*chr15_qtl + temp*chr21_qtl"
+            ),
             linear = list(
-                model = "y ~ snp + temp + temp*chr21_qtl + temp*chr15_qtl",
+                model = "y ~ snp + temp*chr21_qtl + temp*chr15_qtl",
                 null_model = "y ~ temp*chr15_qtl + temp*chr21_qtl"
             ),
             no_temp = list(
-                model = "y ~ snp",
-                null_model = "y ~ 1"
+                model = "y ~ snp + chr15_qtl + chr21_qtl",
+                null_model = "y ~ chr15_qtl + chr21_qtl"
             )
         )
 
@@ -779,6 +833,8 @@ process simulate {
         df <- lapply(1:i_max, simulate) |> rbindlist()
         df[, replicate := ${meta.rep}]
         df[, current_seed := ${seed}]
+        df[, model := ${meta.model}]
+        df[, simulated_locus := "${meta.locus_id}"]
         df[, simulated_locus := "${meta.locus_id}"]
         fwrite(df, "${meta.id}.csv.gz")
         """
@@ -871,7 +927,6 @@ workflow {
             new_meta.rep = rep
             [new_meta, lm_fit, temp_file, rep_random_seed]
         }
-        .filter { it[0].id == "chr4_qtl_model_rep1" }
         .set { simulate_in_ch }
     simulate (
         simulate_in_ch,
@@ -880,17 +935,17 @@ workflow {
         params.r2,
         params.allele_freq
     )
-    //simulate.out.csv.map {
-    //    meta, csv ->
-    //    def new_meta = [
-    //        id: meta.locus_id,
-    //        locus_id: meta.locus_id,
-    //        chr: meta.chr,
-    //        lead_snp_id: meta.lead_snp_id,
-    //    ]
-    //    [new_meta, csv]
-    //}
-    //.groupTuple ( by: 0 )
-    //.set { aggregate_results_in_ch }
-    //aggregate_results ( aggregate_results_in_ch )
+    simulate.out.csv.map {
+        meta, csv ->
+        def new_meta = [
+            id: meta.locus_id,
+            locus_id: meta.locus_id,
+            chr: meta.chr,
+            lead_snp_id: meta.lead_snp_id,
+        ]
+        [new_meta, csv]
+    }
+    .groupTuple ( by: 0 )
+    .set { aggregate_results_in_ch }
+    aggregate_results ( aggregate_results_in_ch )
 }
