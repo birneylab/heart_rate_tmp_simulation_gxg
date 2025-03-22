@@ -551,7 +551,7 @@ process simulate {
 
         extract_pvals <- function(model_name, model_fits) {
             ret <- model_fits[[model_name]][c("lrt_chisq", "df", "pval")]
-            ret[["model"]] <- model_name
+            ret[["discovery_model"]] <- model_name
             return(ret)
         }
 
@@ -833,8 +833,7 @@ process simulate {
         df <- lapply(1:i_max, simulate) |> rbindlist()
         df[, replicate := ${meta.rep}]
         df[, current_seed := ${seed}]
-        df[, model := ${meta.model}]
-        df[, simulated_locus := "${meta.locus_id}"]
+        df[, generative_model := "${meta.model}"]
         df[, simulated_locus := "${meta.locus_id}"]
         fwrite(df, "${meta.id}.csv.gz")
         """
@@ -908,8 +907,8 @@ workflow {
     get_qtl_matrices ( get_qtl_matrices_in_ch )
     fit_mixed_model ( get_qtl_matrices.out )
     fit_mixed_model.out
-        .map { meta, mm -> [meta.locus_id, mm] }
-        .combine ( get_qtl_matrices.out.map { meta, qtl_mat -> [meta.locus_id, meta, qtl_mat] }, by: 0 )
+        .map { meta, mm -> [meta.id, mm] }
+        .join ( get_qtl_matrices.out.map { meta, qtl_mat -> [meta.id, meta, qtl_mat] }, by: 0 )
         .map { match_tuple, mm, meta, qtl_mat -> [meta, qtl_mat, mm] }
         .set { decorrelate_matrices_in_ch }
     decorrelate_matrices ( decorrelate_matrices_in_ch )
