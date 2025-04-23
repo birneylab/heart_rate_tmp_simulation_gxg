@@ -825,6 +825,23 @@ process simulate {
             no_temp = list(
                 model = "y ~ snp + chr15_qtl + chr21_qtl",
                 null_model = "y ~ chr15_qtl + chr21_qtl"
+            ),
+            # additional tests for non-additive terms against a G + E model
+            dominance_non_additive = list(
+                model = "y ~ snp + dominance + temp*chr21_qtl + temp*chr15_qtl",
+                null_model = "y ~ snp + temp*chr21_qtl + temp*chr15_qtl"
+            ),
+            gxe_non_additive = list(
+                model = "y ~ temp*snp + temp*chr15_qtl + temp*chr21_qtl",
+                null_model = "y ~ snp + temp*chr21_qtl + temp*chr15_qtl"
+            ),
+            gxe_and_dominance_non_additive = list(
+                model = "y ~ temp*snp + temp*dominance + temp*chr15_qtl + temp*chr21_qtl",
+                null_model = "y ~ snp + temp*chr21_qtl + temp*chr15_qtl"
+            ),
+            gxgxe_gxg_gxe_dominance_non_additive = list(
+                model = "y ~ temp*snp*chr15_qtl + temp*snp*chr21_qtl + dominance*temp",
+                null_model = "y ~ snp + temp*chr21_qtl + temp*chr15_qtl"
             )
         )
 

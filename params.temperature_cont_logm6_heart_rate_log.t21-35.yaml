@@ -1,4 +1,4 @@
-outdir: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/simulation_gxg/temperature_cont_logm6_heart_rate_log_t21-35"
+outdir: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/simulation_gxg/temperature_cont_logm6_heart_rate_log_t21-35_with_non_additive_effects"
 pheno: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/flexlmm/inputs/f2_crosses.pheno"
 covar: "/nfs/research/birney/users/saul/outputs/heart_rate_tmp_manuscript_data/flexlmm/inputs/f2_crosses.genetic_covars_2.covar"
 qtls: "/nfs/research/birney/users/saul/meta/heart_rate_tmp/fine_mapped_regions/qtls_simplified.08_11_2024.csv"
@@ -19,7 +19,7 @@ heart_rate_trans: "log(x)"
 temp_trans: "log(x - 6)"
 temperature_filter: "temperature_celsius >= 21 & temperature_celsius <= 35 & breeding_season == TRUE"
 n_chr: 24
-n_rep: 1
+n_rep: 100
 rand_seed: 1
 noise_levels: [
   1.0e-2,
